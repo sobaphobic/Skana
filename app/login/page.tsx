@@ -147,14 +147,14 @@ function SignupForm() {
           name="first_name"
           label="First name"
           autoComplete="given-name"
-          placeholder="Alex"
+          placeholder="Jane"
         />
         <FormField
           id="signup-last-name"
           name="last_name"
           label="Last name"
           autoComplete="family-name"
-          placeholder="Chen"
+          placeholder="Smith"
         />
       </div>
       <FormField

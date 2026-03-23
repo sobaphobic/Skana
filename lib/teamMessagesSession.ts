@@ -192,41 +192,5 @@ export function appendTeamMessage(
   return saveThreads({ ...threads, [tid]: [...prev, row] });
 }
 
-/**
- * Session flag so we only insert the sample peer message once per browser session
- * (clear with sign-out or by removing this key in devtools).
- */
+/** Legacy session key; still cleared on sign-out / migration. */
 export const TEAM_DEMO_UNREAD_SEED_KEY = "skana_demo_unread_seeded_v1";
-
-function demoUnreadSeedStorageKey(): string {
-  const id = getEffectiveWorkspaceId();
-  if (!id) return TEAM_DEMO_UNREAD_SEED_KEY;
-  return namespacedSessionKey(TEAM_DEMO_UNREAD_SEED_KEY, id);
-}
-
-const DEMO_UNREAD_THREAD_ID = "demo_alex_chen";
-
-/**
- * In **development** only: adds one message from Alex Chen so the unread badge
- * on his Messages button is easy to verify. No-op in production builds.
- */
-export function seedDemoUnreadBadgeMessage(): void {
-  if (typeof window === "undefined") return;
-  if (process.env.NODE_ENV !== "development") return;
-  try {
-    if (sessionStorage.getItem(demoUnreadSeedStorageKey())) return;
-    const existing = getThreadMessages(DEMO_UNREAD_THREAD_ID);
-    if (existing.some((m) => m.body.includes("[demo unread]"))) {
-      sessionStorage.setItem(demoUnreadSeedStorageKey(), "1");
-      return;
-    }
-    appendTeamMessage(DEMO_UNREAD_THREAD_ID, {
-      authorName: "Alex Chen",
-      body: "[demo unread] Hi — this is a test message so you can see the unread indicator. Open Messages to mark it as read.",
-      attachments: [],
-    });
-    sessionStorage.setItem(demoUnreadSeedStorageKey(), "1");
-  } catch {
-    /* ignore */
-  }
-}

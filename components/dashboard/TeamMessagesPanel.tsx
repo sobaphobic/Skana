@@ -3,14 +3,17 @@
 import {
   fileToDataUrlIfUnder,
   formatWelcomeDisplayName,
+  parseCompanySession,
   parseOnboardingProfile,
+  readCompanySessionRaw,
   readOnboardingProfileRaw,
+  subscribeCompanySession,
+  type CompanyPerson,
 } from "@/lib/skanaSession";
 import {
   appendTeamMessage,
   getThreadMessages,
   readTeamMessagesRaw,
-  seedDemoUnreadBadgeMessage,
   subscribeTeamMessages,
   type TeamMessageAttachment,
 } from "@/lib/teamMessagesSession";
@@ -27,6 +30,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -35,29 +39,31 @@ import {
 const MAX_ATTACH_BYTES = 450_000;
 const MAX_FILES_PER_MESSAGE = 5;
 
-const DEMO_TEAM = [
-  {
-    threadId: "demo_alex_chen",
-    initial: "A",
-    avatarClass: "bg-red-400/90 text-white",
-    name: "Alex Chen",
-    email: "alex@startup.com",
-  },
-  {
-    threadId: "demo_jordan_lee",
-    initial: "J",
-    avatarClass: "bg-teal-400/80 text-crm-bg",
-    name: "Jordan Lee",
-    email: "jordan@startup.com",
-  },
-  {
-    threadId: "demo_chris_bailey",
-    initial: "C",
-    avatarClass: "bg-violet-500/85 text-white",
-    name: "Chris Bailey",
-    email: "chris@startup.com",
-  },
+const AVATAR_CLASSES = [
+  "bg-red-400/90 text-white",
+  "bg-teal-400/80 text-crm-bg",
+  "bg-violet-500/85 text-white",
+  "bg-amber-500/85 text-crm-bg",
+  "bg-emerald-500/80 text-white",
+  "bg-sky-500/85 text-white",
 ] as const;
+
+function threadIdForPerson(personId: string): string {
+  return `team_${personId.trim()}`;
+}
+
+function initialFromName(name: string): string {
+  const t = name.trim();
+  return t ? t[0]!.toUpperCase() : "?";
+}
+
+function avatarClassForPersonId(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (h + id.charCodeAt(i)) % AVATAR_CLASSES.length;
+  }
+  return AVATAR_CLASSES[h]!;
+}
 
 const controlClass =
   "w-full rounded-xl border border-crm-border bg-crm-bg/40 px-3.5 py-2.5 text-sm text-crm-cream placeholder:text-crm-muted/70 outline-none transition focus:border-crm-cream/45 focus:ring-2 focus:ring-crm-cream/15";
@@ -78,6 +84,17 @@ export function TeamMessagesPanel() {
     () => null,
   );
   const profile = parseOnboardingProfile(profileRaw);
+
+  const companyRaw = useSyncExternalStore(
+    subscribeCompanySession,
+    readCompanySessionRaw,
+    () => null,
+  );
+  const company = useMemo(
+    () => parseCompanySession(companyRaw),
+    [companyRaw],
+  );
+  const teamPeople: CompanyPerson[] = company?.people ?? [];
 
   const messagesRaw = useSyncExternalStore(
     subscribeTeamMessages,
@@ -114,10 +131,6 @@ export function TeamMessagesPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const myName = senderDisplayName(profile);
-
-  useEffect(() => {
-    seedDemoUnreadBadgeMessage();
-  }, []);
 
   useEffect(() => {
     setDraft("");
@@ -217,29 +230,37 @@ export function TeamMessagesPanel() {
         <h3 className="text-sm font-semibold text-crm-cream">Team Overview</h3>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {DEMO_TEAM.map((member) => {
-          const threadMessages = getThreadMessages(member.threadId);
-          const unread = countUnreadPeerMessages(
-            threadMessages,
-            myName,
-            getThreadLastReadAt(member.threadId, readState),
-          );
-          return (
-            <TeamMemberCard
-              key={member.threadId}
-              initial={member.initial}
-              avatarClass={member.avatarClass}
-              name={member.name}
-              email={member.email}
-              threadId={member.threadId}
-              unreadCount={unread}
-              chatOpen={activeThread?.id === member.threadId}
-              onOpenMessages={() =>
-                setActiveThread({ id: member.threadId, name: member.name })
-              }
-            />
-          );
-        })}
+        {teamPeople.length === 0 ? (
+          <p className="col-span-full rounded-2xl border border-crm-border/60 bg-crm-elevated/20 px-4 py-8 text-center text-sm text-crm-muted">
+            No team members yet for this company. People you add in Company
+            settings will appear here.
+          </p>
+        ) : (
+          teamPeople.map((member) => {
+            const tid = threadIdForPerson(member.id);
+            const threadMessages = getThreadMessages(tid);
+            const unread = countUnreadPeerMessages(
+              threadMessages,
+              myName,
+              getThreadLastReadAt(tid, readState),
+            );
+            return (
+              <TeamMemberCard
+                key={member.id}
+                initial={initialFromName(member.name)}
+                avatarClass={avatarClassForPersonId(member.id)}
+                name={member.name}
+                email={member.email}
+                threadId={tid}
+                unreadCount={unread}
+                chatOpen={activeThread?.id === tid}
+                onOpenMessages={() =>
+                  setActiveThread({ id: tid, name: member.name })
+                }
+              />
+            );
+          })
+        )}
       </div>
 
       {activeThread ? (
@@ -461,7 +482,7 @@ function TeamMemberCard({
   initial: string;
   avatarClass: string;
   name: string;
-  email: string;
+  email?: string;
   unreadCount: number;
   chatOpen: boolean;
   onOpenMessages: () => void;
@@ -476,7 +497,9 @@ function TeamMemberCard({
         {initial}
       </div>
       <p className="mt-3 text-sm font-semibold text-crm-cream">{name}</p>
-      <p className="text-xs text-crm-muted">{email}</p>
+      <p className="text-xs text-crm-muted">
+        {email?.trim() ? email : "—"}
+      </p>
       <div className="relative mt-3">
         <button
           type="button"
