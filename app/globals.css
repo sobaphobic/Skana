@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* SkAna brand: deep teal + cream (matches logo artwork) */
+  --background: #134e5e;
+  --foreground: #f2e8cf;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-crm-bg: #134e5e;
+  /* App shell: sidebar slightly darker than main (CRM reference) */
+  --color-crm-sidebar: #0b353d;
+  --color-crm-main: #134e5e;
+  --color-crm-elevated: #175a6c;
+  --color-crm-active: #1c6b7d;
+  --color-crm-cream: #f2e8cf;
+  --color-crm-border: color-mix(in oklab, var(--foreground) 18%, transparent);
+  --color-crm-muted: color-mix(in oklab, var(--foreground) 58%, transparent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
