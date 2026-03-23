@@ -51,6 +51,7 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CompanySession | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -300,23 +301,28 @@ export function DashboardSidebar({
                 </h2>
                 <p className="mt-1 text-xs text-crm-muted">
                   Adds a separate workspace with its own pipeline and contacts.
-                  Codes are matched on this device until a server validates joins.
+                  Codes from a signed-in admin are checked online.
                 </p>
                 <form
                   className="mt-4 flex flex-col gap-3"
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     setJoinError(null);
                     const fd = new FormData(e.currentTarget);
                     const raw = String(
                       fd.get("company_login_code") ?? "",
                     ).trim();
-                    const result = joinCompanyByInviteCode(raw);
-                    if (!result.ok) {
-                      setJoinError(result.error);
-                      return;
+                    setJoinBusy(true);
+                    try {
+                      const result = await joinCompanyByInviteCode(raw);
+                      if (!result.ok) {
+                        setJoinError(result.error);
+                        return;
+                      }
+                      setJoinOpen(false);
+                    } finally {
+                      setJoinBusy(false);
                     }
-                    setJoinOpen(false);
                   }}
                 >
                   {joinError ? (
@@ -339,7 +345,9 @@ export function DashboardSidebar({
                     >
                       Cancel
                     </button>
-                    <PrimarySubmitButton>Add company</PrimarySubmitButton>
+                    <PrimarySubmitButton disabled={joinBusy}>
+                      {joinBusy ? "Adding…" : "Add company"}
+                    </PrimarySubmitButton>
                   </div>
                 </form>
               </div>

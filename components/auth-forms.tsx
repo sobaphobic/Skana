@@ -103,11 +103,18 @@ export function FormTextarea({
   );
 }
 
-export function PrimarySubmitButton({ children }: { children: ReactNode }) {
+export function PrimarySubmitButton({
+  children,
+  disabled,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="submit"
-      className="mt-2 w-full rounded-xl border-2 border-white/35 bg-white px-4 py-3.5 text-sm font-bold tracking-wide text-crm-bg shadow-[0_6px_24px_rgba(0,0,0,0.22)] transition hover:border-crm-cream hover:bg-crm-cream hover:shadow-[0_8px_28px_rgba(0,0,0,0.28)] active:scale-[0.99]"
+      disabled={disabled}
+      className="mt-2 w-full rounded-xl border-2 border-white/35 bg-white px-4 py-3.5 text-sm font-bold tracking-wide text-crm-bg shadow-[0_6px_24px_rgba(0,0,0,0.22)] transition hover:border-crm-cream hover:bg-crm-cream hover:shadow-[0_8px_28px_rgba(0,0,0,0.28)] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
     >
       {children}
     </button>

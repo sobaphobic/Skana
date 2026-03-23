@@ -16,6 +16,12 @@ import {
   namespacedSessionKey,
   syncActiveCompanyIdToSession,
 } from "./workspaceScope";
+import {
+  resolveCompanyInviteFromSupabase,
+  schedulePublishCompanyInvitesIfStale,
+  schedulePublishCompanyInvitesToSupabase,
+} from "./companyInviteRemote";
+import { isSupabaseConfigured } from "./supabase/browser-client";
 
 /** Session keys stored per company via `namespacedSessionKey(base, companyId)`. */
 const SESSION_KEYS_NAMESPACED_PER_COMPANY = [
@@ -470,6 +476,7 @@ function writeCompaniesWorkspaceBundle(bundle: CompaniesWorkspaceBundle) {
     sessionStorage.setItem(COMPANY_SESSION_KEY, JSON.stringify(bundle));
     syncActiveCompanyIdToSession(bundle.activeCompanyId);
     syncInviteRegistryFromCompanies(bundle.companies);
+    schedulePublishCompanyInvitesToSupabase(bundle.companies);
     emitCompanyChanged();
   } catch {
     /* quota */
@@ -489,6 +496,7 @@ export function ensureWorkspaceMigrated(): void {
     if (bundle) {
       syncActiveCompanyIdToSession(bundle.activeCompanyId);
       syncInviteRegistryFromCompanies(bundle.companies);
+      schedulePublishCompanyInvitesIfStale(bundle.companies);
       return;
     }
     const legacy = parseCompanySession(raw);
@@ -504,10 +512,7 @@ export function ensureWorkspaceMigrated(): void {
       companies: [company],
       activeCompanyId: id,
     };
-    sessionStorage.setItem(COMPANY_SESSION_KEY, JSON.stringify(next));
-    syncActiveCompanyIdToSession(id);
-    syncInviteRegistryFromCompanies(next.companies);
-    emitCompanyChanged();
+    writeCompaniesWorkspaceBundle(next);
   } catch {
     /* ignore */
   }
@@ -615,11 +620,12 @@ export function appendCompanyToWorkspace(
 
 /**
  * Resolve a join code and append a segregated workspace (empty pipeline/contacts/etc.).
+ * When Supabase invite RPCs are set up, codes published by the admin work from any device.
  */
-export function joinCompanyByInviteCode(rawCode: string): {
-  ok: true;
-  companyId: string;
-} | { ok: false; error: string } {
+export async function joinCompanyByInviteCode(rawCode: string): Promise<
+  | { ok: true; companyId: string }
+  | { ok: false; error: string }
+> {
   ensureWorkspaceMigrated();
   const entered = normalizeCompanyInviteCode(rawCode);
   if (!entered) {
@@ -639,12 +645,16 @@ export function joinCompanyByInviteCode(rawCode: string): {
       };
     }
   }
-  const hit = findInviteByNormalizedCode(entered);
+  let hit = findInviteByNormalizedCode(entered);
+  if (!hit?.companyName?.trim()) {
+    hit = await resolveCompanyInviteFromSupabase(entered);
+  }
   if (!hit?.companyName?.trim()) {
     return {
       ok: false,
-      error:
-        "That code doesn’t match anything on this browser. Ask your admin for the current code from Company settings, or create the company on this computer first so the code is stored here.",
+      error: isSupabaseConfigured()
+        ? "That code wasn’t found. Ask your admin for the current code. They should open SkAna while signed in once so the code is published to the server."
+        : "That code doesn’t match anything on this browser. Ask your admin for the current code from Company settings, or create the company on this computer first so the code is stored here.",
     };
   }
   const profile = parseOnboardingProfile(readOnboardingProfileRaw());

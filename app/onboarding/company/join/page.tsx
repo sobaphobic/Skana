@@ -11,6 +11,7 @@ import { useState } from "react";
 export default function JoinCompanyPage() {
   const router = useRouter();
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
 
   return (
     <AuthFlowShell
@@ -31,24 +32,29 @@ export default function JoinCompanyPage() {
             Join existing company
           </h1>
           <p className="mt-1 text-sm text-crm-muted">
-            Codes are checked on this device (saved when the workspace was set
-            up). A server will validate joins in production.
+            If your admin uses SkAna signed in, their company code is validated
+            online so you can join from any device.
           </p>
         </div>
 
         <form
           className="flex flex-col gap-4 px-0.5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setJoinError(null);
             const fd = new FormData(e.currentTarget);
             const raw = String(fd.get("company_login_code") ?? "").trim();
-            const result = joinCompanyByInviteCode(raw);
-            if (!result.ok) {
-              setJoinError(result.error);
-              return;
+            setJoinBusy(true);
+            try {
+              const result = await joinCompanyByInviteCode(raw);
+              if (!result.ok) {
+                setJoinError(result.error);
+                return;
+              }
+              router.push("/dashboard");
+            } finally {
+              setJoinBusy(false);
             }
-            router.push("/dashboard");
           }}
         >
           {joinError ? (
@@ -64,7 +70,9 @@ export default function JoinCompanyPage() {
             placeholder="e.g. SKANA-X4K2-P8M1"
           />
 
-          <PrimarySubmitButton>Join company</PrimarySubmitButton>
+          <PrimarySubmitButton disabled={joinBusy}>
+            {joinBusy ? "Joining…" : "Join company"}
+          </PrimarySubmitButton>
         </form>
 
         <p className="mt-6 text-center text-xs text-crm-muted">

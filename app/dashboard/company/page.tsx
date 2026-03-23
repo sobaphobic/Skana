@@ -17,6 +17,7 @@ import {
   type CompanyCredentialRow,
   type CompanyDocument,
 } from "@/lib/skanaSession";
+import { scheduleRetireCompanyInviteOnSupabase } from "@/lib/companyInviteRemote";
 import {
   Building2,
   Copy,
@@ -306,6 +307,8 @@ export default function CompanyPage() {
     }
     const c = parseCompanySession(readCompanySessionRaw());
     if (!c?.id) return;
+    const oldCode = c.company_invite_code?.trim();
+    if (oldCode) scheduleRetireCompanyInviteOnSupabase(oldCode);
     saveCompanySession({
       ...c,
       company_invite_code: generateCompanyInviteCode(),

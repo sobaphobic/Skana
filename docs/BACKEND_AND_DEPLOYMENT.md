@@ -181,5 +181,53 @@ Each step should stay **small** so you can test after every change.
 | `app/manifest.ts` | PWA manifest for installable app. |
 | `app/layout.tsx` | `viewport` + `appleWebApp` for mobile install UX. |
 | `docs/BACKEND_AND_DEPLOYMENT.md` | This guide. |
+| `lib/supabase/browser-client.ts` | Optional browser Supabase client when env vars are set. |
+| `@supabase/supabase-js` | Official Supabase client (in `package.json`). |
 
 Your application logic in `lib/*Session.ts` is unchanged until you intentionally migrate feature by feature to Supabase.
+
+---
+
+## 11. Phase B — Supabase (do this after Phase A)
+
+The repo includes `@supabase/supabase-js` and `lib/supabase/browser-client.ts`. Until you set the env vars below, **`getBrowserSupabase()` returns `null`** and the app behaves as before (browser-only storage).
+
+### B1 — Create the Supabase project (you, in the browser)
+
+1. Go to [supabase.com](https://supabase.com) and sign in.
+2. **New project** → pick a name, database password (save it), region.
+3. Wait until the project finishes provisioning.
+
+### B2 — Copy API keys
+
+1. In Supabase: **Project Settings** (gear) → **API**.
+2. Copy:
+   - **Project URL** → use as `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon public** key → use as `NEXT_PUBLIC_SUPABASE_ANON_KEY`  
+   (Use the **anon** key in the frontend only; never the **service_role** key in client code.)
+
+### B3 — Local env file (your Mac)
+
+1. In the SkAna project root, create **`.env.local`** (same folder as `package.json`).
+2. Add (paste your real values):
+
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+   ```
+
+3. Restart `npm run dev` so Next.js picks up the variables.
+
+### B4 — Vercel (production)
+
+1. Vercel → your SkAna project → **Settings** → **Environment Variables**.
+2. Add the **same two** names and values for **Production** (and **Preview** if you use preview deploys).
+3. **Redeploy** the latest deployment (or push a small commit) so the build includes these vars.
+
+### B5 — What’s next after keys work
+
+- **Auth:** turn on Email (magic link) or Google in Supabase **Authentication** → **Providers**; then add login flow and protect `/dashboard`.
+- **Tables:** design SQL for `companies`, `deals`, etc., with **Row Level Security** so users only see their rows.
+- **Migrate one feature at a time** from `lib/*Session.ts` to Supabase (e.g. companies first).
+
+Ask in Cursor for the next small slice (e.g. “add Supabase Auth email login page”).
