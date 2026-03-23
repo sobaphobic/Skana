@@ -14,6 +14,10 @@ import { Suspense, useState } from "react";
 
 type Mode = "login" | "signup";
 
+function normalizeAuthEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
 function LoginPageInner() {
   const [mode, setMode] = useState<Mode>("login");
   const searchParams = useSearchParams();
@@ -120,7 +124,6 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextRaw = searchParams.get("next");
   const [busy, setBusy] = useState(false);
@@ -137,7 +140,7 @@ function LoginForm() {
         const password = String(data.get("password") ?? "");
 
         if (supabaseConfigured) {
-          const email = String(data.get("email") ?? "").trim();
+          const email = normalizeAuthEmail(String(data.get("email") ?? ""));
           if (!email || !password) {
             setFormError("Enter email and password.");
             return;
@@ -152,15 +155,21 @@ function LoginForm() {
             email,
             password,
           });
-          setBusy(false);
           if (error) {
-            setFormError(error.message);
+            setBusy(false);
+            let msg = error.message;
+            if (/email not confirmed|confirm your email/i.test(msg)) {
+              msg =
+                "This email is not confirmed yet. Use the link in your sign-up email, then try again. (In Supabase: Authentication → Providers → Email → you can adjust confirmation settings.)";
+            }
+            setFormError(msg);
             return;
           }
           const next =
             nextRaw && nextRaw.startsWith("/") ? nextRaw : "/dashboard";
-          router.refresh();
-          router.push(next);
+          // Full navigation so cookie-based session is visible to middleware on the next request
+          // (client router.push can run before @supabase/ssr finishes syncing cookies).
+          window.location.assign(next);
           return;
         }
 
@@ -228,8 +237,10 @@ function SignupForm() {
         const data = new FormData(e.currentTarget);
         const firstName = String(data.get("first_name") ?? "").trim();
         const lastName = String(data.get("last_name") ?? "").trim();
-        const email = String(data.get("email") ?? "").trim();
-        const username = String(data.get("username") ?? "").trim();
+        const emailRaw = String(data.get("email") ?? "").trim();
+        const email = supabaseConfigured
+          ? normalizeAuthEmail(emailRaw)
+          : emailRaw;
         const password = String(data.get("password") ?? "");
 
         if (supabaseConfigured) {
@@ -257,7 +268,6 @@ function SignupForm() {
               data: {
                 first_name: firstName,
                 last_name: lastName,
-                username,
               },
             },
           });
@@ -270,7 +280,7 @@ function SignupForm() {
             firstName: firstName || "there",
             lastName: lastName || "",
             email,
-            username,
+            username: "",
           });
           if (authData.session) {
             router.refresh();
@@ -287,14 +297,13 @@ function SignupForm() {
           firstName,
           lastName,
           email,
-          username,
           passwordLength: password.length,
         });
         saveOnboardingProfile({
           firstName,
           lastName,
           email,
-          username,
+          username: "",
         });
         router.push("/onboarding/company");
       }}
@@ -335,13 +344,6 @@ function SignupForm() {
         type="email"
         autoComplete="email"
         placeholder="you@company.com"
-      />
-      <FormField
-        id="signup-username"
-        name="username"
-        label="Username"
-        autoComplete="username"
-        placeholder="Choose a username"
       />
       <FormField
         id="signup-password"
