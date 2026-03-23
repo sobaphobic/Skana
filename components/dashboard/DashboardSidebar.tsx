@@ -3,6 +3,7 @@
 import { FormField, PrimarySubmitButton } from "@/components/auth-forms";
 import { BrandLogo } from "@/components/BrandLogo";
 import type { CompanySession } from "@/lib/skanaSession";
+import { getBrowserSupabase, isSupabaseConfigured } from "@/lib/supabase/browser-client";
 import {
   clearSkanaClientSession,
   joinCompanyByInviteCode,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -57,6 +58,21 @@ export function DashboardSidebar({
 
   const canDeleteCompany = companies.length > 1;
 
+  const handleRefresh = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    clearSkanaClientSession();
+    if (isSupabaseConfigured()) {
+      const supabase = getBrowserSupabase();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    }
+    window.location.href = "/login";
+  }, []);
+
   return (
     <aside className="flex min-h-screen w-64 shrink-0 flex-col border-r border-crm-border/50 bg-crm-sidebar px-3 py-5">
       <div className="flex flex-col items-center gap-2 px-1 text-center">
@@ -76,6 +92,7 @@ export function DashboardSidebar({
         </button>
         <button
           type="button"
+          onClick={handleRefresh}
           className="flex items-center justify-center gap-2 rounded-xl border border-crm-border/80 py-2 text-xs font-medium text-crm-cream/90 transition hover:bg-white/5"
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden strokeWidth={2} />
@@ -356,14 +373,14 @@ export function DashboardSidebar({
         </div>
 
         <div className="mt-3 shrink-0 border-t border-crm-border/40 pt-3">
-          <Link
-            href="/login"
-            onClick={() => clearSkanaClientSession()}
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-crm-border/80 py-2.5 text-sm font-medium text-crm-cream/90 transition hover:bg-white/5"
           >
             <LogOut className="h-4 w-4" aria-hidden strokeWidth={2} />
             Sign out
-          </Link>
+          </button>
         </div>
       </div>
     </aside>
