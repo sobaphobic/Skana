@@ -12,7 +12,7 @@ import {
 export const PIPELINE_CONTACT_HISTORY_SESSION_KEY =
   "skana_pipeline_contact_history";
 
-type HistoryStore = Record<string, ContactHistoryEntry[]>;
+export type HistoryStore = Record<string, ContactHistoryEntry[]>;
 
 const listeners = new Set<() => void>();
 
@@ -93,6 +93,10 @@ export function readPipelineContactHistory(): HistoryStore {
   return parsePipelineContactHistory(readPipelineContactHistoryRaw());
 }
 
+export function replacePipelineContactHistoryStore(store: HistoryStore): void {
+  savePipelineContactHistory(store);
+}
+
 function savePipelineContactHistory(store: HistoryStore): void {
   try {
     sessionStorage.setItem(
@@ -100,6 +104,14 @@ function savePipelineContactHistory(store: HistoryStore): void {
       JSON.stringify(store),
     );
     emitChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush(
+          "pipeline_contact_history",
+          () => store,
+        );
+      });
+    }
   } catch {
     /* quota / private mode */
   }

@@ -123,6 +123,12 @@ function parseMessageArray(data: unknown): TeamMessage[] {
 /** Legacy single-thread format was a raw JSON array. */
 const LEGACY_THREAD_KEY = "demo_alex_chen";
 
+export function parseTeamMessageThreadsFromStorageJson(
+  raw: string,
+): TeamMessageThreads {
+  return parseStoredThreads(raw);
+}
+
 function parseStoredThreads(raw: string | null): TeamMessageThreads {
   if (!raw) return {};
   try {
@@ -146,6 +152,10 @@ function parseStoredThreads(raw: string | null): TeamMessageThreads {
   return {};
 }
 
+export function replaceTeamMessageStore(threads: TeamMessageThreads): void {
+  saveThreads(threads);
+}
+
 function saveThreads(threads: TeamMessageThreads): boolean {
   try {
     sessionStorage.setItem(
@@ -153,10 +163,32 @@ function saveThreads(threads: TeamMessageThreads): boolean {
       JSON.stringify({ threads }),
     );
     emitTeamMessagesChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush("team_messages", () => ({
+          threads,
+        }));
+      });
+    }
     return true;
   } catch {
     /* quota / private mode */
     return false;
+  }
+}
+
+/** Shape stored in Supabase / session for sync. */
+export function teamMessagesPayloadForSync(): { threads: TeamMessageThreads } {
+  const raw = readTeamMessagesRaw();
+  if (!raw) return { threads: {} };
+  try {
+    const o = JSON.parse(raw) as unknown;
+    if (o && typeof o === "object" && "threads" in (o as object)) {
+      return o as { threads: TeamMessageThreads };
+    }
+    return { threads: {} };
+  } catch {
+    return { threads: {} };
   }
 }
 

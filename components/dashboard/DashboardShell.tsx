@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { DashboardMainHeader } from "./DashboardMainHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
+import { WorkspaceDataSync } from "./WorkspaceDataSync";
 import { WorkspaceMembersSync } from "./WorkspaceMembersSync";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
@@ -33,6 +34,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-crm-main text-foreground">
+      <WorkspaceDataSync />
       <WorkspaceMembersSync />
       <DashboardSidebar company={company} companies={companies} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">

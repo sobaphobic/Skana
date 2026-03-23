@@ -258,6 +258,11 @@ export function saveCalendarEntries(entries: CalendarEntry[]): void {
   try {
     sessionStorage.setItem(storageKey(), JSON.stringify(entries));
     emitChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush("calendar", () => entries);
+      });
+    }
   } catch {
     /* quota */
   }

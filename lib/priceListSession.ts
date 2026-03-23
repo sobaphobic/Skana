@@ -176,6 +176,11 @@ export function savePriceList(items: PriceListItem[]): void {
   try {
     sessionStorage.setItem(priceListStorageKey(), JSON.stringify(items));
     emitPriceListChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush("price_list", () => items);
+      });
+    }
   } catch {
     /* quota / private mode */
   }

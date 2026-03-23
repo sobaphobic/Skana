@@ -191,6 +191,11 @@ export function saveDeals(deals: PipelineDeal[]): void {
   try {
     sessionStorage.setItem(dealsStorageKey(), JSON.stringify(deals));
     emitDealsChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush("deals", () => deals);
+      });
+    }
   } catch {
     /* quota / private mode */
   }

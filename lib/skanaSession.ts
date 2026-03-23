@@ -22,6 +22,8 @@ import {
   schedulePublishCompanyInvitesToSupabase,
 } from "./companyInviteRemote";
 import { isSupabaseConfigured } from "./supabase/browser-client";
+import { isWorkspaceSyncApplyingRemote } from "./workspaceSyncFlags";
+import { scheduleActiveCompanySharedPush } from "./workspaceSyncScheduler";
 
 /** Session keys stored per company via `namespacedSessionKey(base, companyId)`. */
 const SESSION_KEYS_NAMESPACED_PER_COMPANY = [
@@ -477,6 +479,9 @@ function writeCompaniesWorkspaceBundle(bundle: CompaniesWorkspaceBundle) {
     syncActiveCompanyIdToSession(bundle.activeCompanyId);
     syncInviteRegistryFromCompanies(bundle.companies);
     schedulePublishCompanyInvitesToSupabase(bundle.companies);
+    if (!isWorkspaceSyncApplyingRemote()) {
+      scheduleActiveCompanySharedPush();
+    }
     emitCompanyChanged();
   } catch {
     /* quota */
@@ -677,6 +682,77 @@ export async function joinCompanyByInviteCode(rawCode: string): Promise<
       .catch(() => {});
   }
   return { ok: true, companyId: id };
+}
+
+/** Merge server `company_shared` into local companies that share this invite code (keeps local ids). */
+export function applyRemoteCompanySharedPayload(
+  workspaceCodeNorm: string,
+  payload: unknown,
+): void {
+  ensureWorkspaceMigrated();
+  if (!workspaceCodeNorm.trim() || !payload || typeof payload !== "object") {
+    return;
+  }
+  const p = payload as Record<string, unknown>;
+  const inviteRaw =
+    typeof p.company_invite_code === "string"
+      ? p.company_invite_code.trim()
+      : "";
+  if (
+    !inviteRaw ||
+    normalizeCompanyInviteCode(inviteRaw) !== workspaceCodeNorm
+  ) {
+    return;
+  }
+
+  const bundle = readCompaniesWorkspaceBundle();
+  if (!bundle) return;
+
+  let changed = false;
+  const companies = bundle.companies.map((c) => {
+    if (normalizeCompanyInviteCode(c.company_invite_code ?? "") !== workspaceCodeNorm) {
+      return c;
+    }
+    changed = true;
+    return {
+      ...c,
+      name:
+        typeof p.name === "string" && p.name.trim()
+          ? p.name.trim()
+          : c.name,
+      logoDataUrl:
+        p.logoDataUrl === undefined
+          ? c.logoDataUrl
+          : p.logoDataUrl === null
+            ? null
+            : typeof p.logoDataUrl === "string"
+              ? p.logoDataUrl
+              : c.logoDataUrl,
+      company_number:
+        typeof p.company_number === "string"
+          ? p.company_number.trim() || undefined
+          : c.company_number,
+      company_address:
+        typeof p.company_address === "string"
+          ? p.company_address.trim() || undefined
+          : c.company_address,
+      company_role:
+        typeof p.company_role === "string"
+          ? p.company_role.trim() || undefined
+          : c.company_role,
+      company_invite_code: inviteRaw || c.company_invite_code,
+      people: Array.isArray(p.people) ? parsePeople(p.people) : c.people,
+      credentials: Array.isArray(p.credentials)
+        ? parseCredentials(p.credentials)
+        : c.credentials,
+      documents: Array.isArray(p.documents)
+        ? parseDocuments(p.documents)
+        : c.documents,
+    };
+  });
+
+  if (!changed) return;
+  writeCompaniesWorkspaceBundle({ ...bundle, companies });
 }
 
 function parsePeople(raw: unknown): CompanyPerson[] {

@@ -104,13 +104,26 @@ export function parseTeamMessagesReadState(
   }
 }
 
+export function replaceTeamMessagesReadState(state: TeamMessagesReadState): void {
+  saveReadState(state);
+}
+
 function saveReadState(state: TeamMessagesReadState): void {
   try {
     sessionStorage.setItem(teamReadStorageKey(), JSON.stringify(state));
     emitReadChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush("team_messages_read", () => state);
+      });
+    }
   } catch {
     /* quota / private mode */
   }
+}
+
+export function teamMessagesReadPayloadForSync(): TeamMessagesReadState {
+  return parseTeamMessagesReadState(readTeamMessagesReadRaw());
 }
 
 /** Call when the user opens a thread so peer messages stop counting as unread. */

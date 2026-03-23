@@ -166,6 +166,11 @@ export function saveManualContacts(contacts: ManualContact[]): void {
     );
     sessionStorage.removeItem(LEGACY_BUSINESS_CONTACTS_SESSION_KEY);
     emitChanged();
+    if (typeof window !== "undefined") {
+      void import("./workspaceSyncScheduler").then((m) => {
+        m.scheduleWorkspaceDocumentPush("contacts", () => contacts);
+      });
+    }
   } catch {
     /* quota / private mode */
   }
