@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Trash2,
   UserCircle,
+  UserX,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -55,6 +56,11 @@ export function DashboardSidebar({
   const [joinBusy, setJoinBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CompanySession | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [accountDeleteOpen, setAccountDeleteOpen] = useState(false);
+  const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
+  const [accountDeleteError, setAccountDeleteError] = useState<string | null>(
+    null,
+  );
 
   const canDeleteCompany = companies.length > 1;
 
@@ -71,6 +77,49 @@ export function DashboardSidebar({
       }
     }
     window.location.href = "/login";
+  }, []);
+
+  const handleConfirmDeleteAccount = useCallback(async () => {
+    setAccountDeleteBusy(true);
+    setAccountDeleteError(null);
+    try {
+      const res = await fetch("/api/account", { method: "DELETE" });
+      let body: { error?: string } = {};
+      try {
+        body = (await res.json()) as { error?: string };
+      } catch {
+        /* ignore */
+      }
+      if (!res.ok) {
+        if (
+          res.status === 503 &&
+          body.error === "account_deletion_not_configured"
+        ) {
+          setAccountDeleteError(
+            "Account deletion isn’t configured on this server. The host needs SUPABASE_SERVICE_ROLE_KEY set, or you can contact support.",
+          );
+        } else if (body.error === "unauthorized") {
+          setAccountDeleteError(
+            "You’re not signed in anymore. Refresh the page or log in again.",
+          );
+        } else {
+          setAccountDeleteError(
+            typeof body.error === "string" && body.error
+              ? body.error
+              : "Could not delete account. Try again.",
+          );
+        }
+        return;
+      }
+      clearSkanaClientSession();
+      const supabase = getBrowserSupabase();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+      window.location.href = "/login";
+    } finally {
+      setAccountDeleteBusy(false);
+    }
   }, []);
 
   return (
@@ -381,7 +430,78 @@ export function DashboardSidebar({
             <LogOut className="h-4 w-4" aria-hidden strokeWidth={2} />
             Sign out
           </button>
+          {isSupabaseConfigured() ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAccountDeleteError(null);
+                setAccountDeleteOpen(true);
+              }}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-transparent py-2 text-xs font-medium text-crm-muted transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-200/95"
+            >
+              <UserX className="h-3.5 w-3.5 shrink-0" aria-hidden strokeWidth={2} />
+              Delete account
+            </button>
+          ) : null}
         </div>
+
+        {accountDeleteOpen ? (
+          <div
+            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-4 sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            onClick={() => {
+              if (!accountDeleteBusy) {
+                setAccountDeleteOpen(false);
+                setAccountDeleteError(null);
+              }
+            }}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-crm-border bg-crm-sidebar p-4 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2
+                id="delete-account-title"
+                className="text-sm font-semibold text-crm-cream"
+              >
+                Delete your account?
+              </h2>
+              <p className="mt-2 text-xs leading-relaxed text-crm-muted">
+                This permanently removes your SkAna login. Workspace data your
+                company stored in the cloud may still exist for your team; ask
+                an admin if you need that removed too. This cannot be undone.
+              </p>
+              {accountDeleteError ? (
+                <p className="mt-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-100/95">
+                  {accountDeleteError}
+                </p>
+              ) : null}
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={accountDeleteBusy}
+                  onClick={() => {
+                    setAccountDeleteOpen(false);
+                    setAccountDeleteError(null);
+                  }}
+                  className="rounded-xl border border-crm-border/80 px-4 py-2.5 text-sm font-medium text-crm-muted transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={accountDeleteBusy}
+                  onClick={() => void handleConfirmDeleteAccount()}
+                  className="rounded-xl border border-red-500/45 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-500/25 disabled:opacity-50"
+                >
+                  {accountDeleteBusy ? "Deleting…" : "Delete my account"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

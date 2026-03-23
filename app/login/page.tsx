@@ -244,6 +244,10 @@ function SignupForm() {
         const password = String(data.get("password") ?? "");
 
         if (supabaseConfigured) {
+          if (!firstName || !lastName) {
+            setFormError("First and last name are required.");
+            return;
+          }
           if (!email || !password) {
             setFormError("Email and password are required.");
             return;
@@ -277,8 +281,8 @@ function SignupForm() {
             return;
           }
           saveOnboardingProfile({
-            firstName: firstName || "there",
-            lastName: lastName || "",
+            firstName,
+            lastName,
             email,
             username: "",
           });
@@ -293,6 +297,10 @@ function SignupForm() {
           return;
         }
 
+        if (!firstName || !lastName) {
+          setFormError("First and last name are required.");
+          return;
+        }
         console.info("[signup]", {
           firstName,
           lastName,
@@ -321,22 +329,20 @@ function SignupForm() {
           {info}
         </p>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          id="signup-first-name"
-          name="first_name"
-          label="First name"
-          autoComplete="given-name"
-          placeholder="Jane"
-        />
-        <FormField
-          id="signup-last-name"
-          name="last_name"
-          label="Last name"
-          autoComplete="family-name"
-          placeholder="Smith"
-        />
-      </div>
+      <FormField
+        id="signup-first-name"
+        name="first_name"
+        label="First name"
+        autoComplete="given-name"
+        placeholder="Jane"
+      />
+      <FormField
+        id="signup-last-name"
+        name="last_name"
+        label="Last name"
+        autoComplete="family-name"
+        placeholder="Smith"
+      />
       <FormField
         id="signup-email"
         name="email"

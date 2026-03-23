@@ -250,6 +250,7 @@ export function TeamMessagesPanel() {
                 initial={initialFromName(member.name)}
                 avatarClass={avatarClassForPersonId(member.id)}
                 name={member.name}
+                role={member.role}
                 email={member.email}
                 threadId={tid}
                 unreadCount={unread}
@@ -473,6 +474,7 @@ function TeamMemberCard({
   initial,
   avatarClass,
   name,
+  role,
   email,
   unreadCount,
   chatOpen,
@@ -482,6 +484,7 @@ function TeamMemberCard({
   initial: string;
   avatarClass: string;
   name: string;
+  role?: string;
   email?: string;
   unreadCount: number;
   chatOpen: boolean;
@@ -497,7 +500,10 @@ function TeamMemberCard({
         {initial}
       </div>
       <p className="mt-3 text-sm font-semibold text-crm-cream">{name}</p>
-      <p className="text-xs text-crm-muted">
+      {role?.trim() ? (
+        <p className="mt-0.5 text-xs text-crm-muted/90">{role.trim()}</p>
+      ) : null}
+      <p className="mt-1 text-xs text-crm-muted">
         {email?.trim() ? email : "—"}
       </p>
       <div className="relative mt-3">

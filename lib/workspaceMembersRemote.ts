@@ -1,7 +1,9 @@
+import type { Session } from "@supabase/supabase-js";
 import {
   buildWorkspacePeopleFromProfile,
-  formatWelcomeDisplayName,
+  formatCompanyRole,
   parseOnboardingProfile,
+  prettifyNameFromEmailLocalPart,
   readOnboardingProfileRaw,
   WORKSPACE_ACCOUNT_PERSON_ID,
   type CompanyPerson,
@@ -22,14 +24,65 @@ type MemberRow = {
   role: string | null;
 };
 
-function displayNameFromProfile(): string {
+function cardNameFromMemberRow(row: MemberRow): string {
+  const raw = (row.display_name || "").trim();
+  const email = (row.email || "").trim();
+  const emailLower = email.toLowerCase();
+  if (raw) {
+    if (raw.includes("@")) {
+      const rawLower = raw.toLowerCase();
+      if (emailLower && rawLower === emailLower) {
+        const pretty = prettifyNameFromEmailLocalPart(
+          email.split("@")[0] ?? "",
+        );
+        if (pretty) return pretty;
+      }
+      const pretty = prettifyNameFromEmailLocalPart(
+        raw.split("@")[0] ?? "",
+      );
+      if (pretty) return pretty;
+    }
+    return raw;
+  }
+  if (email) {
+    const pretty = prettifyNameFromEmailLocalPart(
+      email.split("@")[0] ?? "",
+    );
+    if (pretty) return pretty;
+  }
+  return "Teammate";
+}
+
+/** Prefer real names for `p_display_name`; never store raw email when we can avoid it. */
+function displayNameForWorkspaceRegistry(session: Session): string {
   const profile = parseOnboardingProfile(readOnboardingProfileRaw());
-  const welcome = formatWelcomeDisplayName(profile);
-  if (welcome !== "there") return welcome;
-  const email = profile?.email?.trim();
-  if (email) return email;
-  const u = profile?.username?.trim();
-  if (u) return u;
+  if (profile) {
+    const full = `${profile.firstName} ${profile.lastName}`.trim();
+    if (full) return full;
+  }
+  const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+  if (meta) {
+    const fn =
+      typeof meta.first_name === "string" ? meta.first_name.trim() : "";
+    const ln =
+      typeof meta.last_name === "string" ? meta.last_name.trim() : "";
+    const combined = `${fn} ${ln}`.trim();
+    if (combined) return combined;
+    if (typeof meta.full_name === "string" && meta.full_name.trim()) {
+      return meta.full_name.trim();
+    }
+    if (typeof meta.name === "string" && meta.name.trim()) {
+      return meta.name.trim();
+    }
+  }
+  const email =
+    emailFromProfile() || session.user.email?.trim() || "";
+  if (email) {
+    const pretty = prettifyNameFromEmailLocalPart(
+      email.split("@")[0] ?? "",
+    );
+    if (pretty) return pretty;
+  }
   return "Member";
 }
 
@@ -55,7 +108,7 @@ export async function registerWorkspaceMembershipForCompanies(
   } = await supabase.auth.getSession();
   if (!session) return;
 
-  const displayName = displayNameFromProfile();
+  const displayName = displayNameForWorkspaceRegistry(session);
   const email = emailFromProfile() || session.user.email?.trim() || "";
 
   for (const c of companies) {
@@ -139,10 +192,11 @@ export async function buildMergedWorkspacePeople(
     const uid = row.user_id;
     if (!uid || uid === selfId) continue;
     const id = remoteWorkspaceMemberPersonId(uid);
+    const rawRole = (row.role || "").trim();
     byId.set(id, {
       id,
-      name: (row.display_name || "").trim() || "Teammate",
-      role: (row.role || "").trim() || "Member",
+      name: cardNameFromMemberRow(row),
+      role: rawRole ? formatCompanyRole(rawRole) : "Member",
       ...(row.email?.trim() ? { email: row.email.trim() } : {}),
     });
   }

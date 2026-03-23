@@ -311,6 +311,17 @@ export function formatWelcomeDisplayName(
   return full || "there";
 }
 
+/** Turn `jane.smith` from an email local-part into "Jane Smith" for team cards. */
+export function prettifyNameFromEmailLocalPart(local: string): string {
+  const t = local.trim();
+  if (!t) return "";
+  const parts = t.split(/[._+]+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  return parts
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(" ");
+}
+
 /** Label for “Signed up as …” on onboarding. */
 export function signedUpAsLabel(profile: OnboardingProfile | null): string | null {
   if (!profile) return null;
@@ -947,7 +958,14 @@ export function buildWorkspacePeopleFromProfile(
 ): CompanyPerson[] {
   if (!profile) return [];
   const full = `${profile.firstName} ${profile.lastName}`.trim();
-  const name = full || profile.email || profile.username;
+  const fromEmailLocal = profile.email
+    ? prettifyNameFromEmailLocalPart(profile.email.split("@")[0] ?? "")
+    : "";
+  const name =
+    full ||
+    fromEmailLocal ||
+    profile.email ||
+    profile.username;
   if (!name) return [];
   return [
     {
