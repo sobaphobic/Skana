@@ -669,6 +669,13 @@ export async function joinCompanyByInviteCode(rawCode: string): Promise<
     },
     { makeActive: false },
   );
+  if (typeof window !== "undefined") {
+    void import("./workspaceMembersRemote")
+      .then((m) =>
+        m.registerWorkspaceMembershipForInviteCode(hit.code.trim()),
+      )
+      .catch(() => {});
+  }
   return { ok: true, companyId: id };
 }
 

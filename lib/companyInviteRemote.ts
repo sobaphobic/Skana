@@ -6,6 +6,7 @@ const PUBLISH_THROTTLE_MS = 60_000;
 type CompanyInvitePublishRow = {
   company_invite_code?: string;
   name: string;
+  company_role?: string;
 };
 
 type InviteHit = {
@@ -71,6 +72,11 @@ async function publishCompanyInvitesToSupabase(
       console.warn("[SkAna] publish_company_invite", error.message);
     }
   }
+
+  const { registerWorkspaceMembershipForCompanies } = await import(
+    "./workspaceMembersRemote"
+  );
+  await registerWorkspaceMembershipForCompanies(companies);
 }
 
 /** Remove a code from the shared registry (e.g. after regenerate). */

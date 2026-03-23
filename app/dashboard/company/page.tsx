@@ -14,10 +14,13 @@ import {
   readOnboardingProfileRaw,
   saveCompanySession,
   subscribeCompanySession,
+  WORKSPACE_ACCOUNT_PERSON_ID,
   type CompanyCredentialRow,
   type CompanyDocument,
+  type CompanyPerson,
 } from "@/lib/skanaSession";
 import { scheduleRetireCompanyInviteOnSupabase } from "@/lib/companyInviteRemote";
+import { WORKSPACE_MEMBER_REMOTE_PREFIX } from "@/lib/workspaceMembersRemote";
 import {
   Building2,
   Copy,
@@ -78,17 +81,8 @@ export default function CompanyPage() {
     [profile, company?.company_role],
   );
 
-  useEffect(() => {
-    const c = parseCompanySession(readCompanySessionRaw());
-    if (!c?.id) return;
-    const nextPeople = buildWorkspacePeopleFromProfile(
-      parseOnboardingProfile(readOnboardingProfileRaw()),
-      c.company_role,
-    );
-    if (JSON.stringify(c.people) !== JSON.stringify(nextPeople)) {
-      saveCompanySession({ ...c, people: nextPeople });
-    }
-  }, [companyRaw, profileRaw]);
+  const displayPeople =
+    company?.people && company.people.length > 0 ? company.people : workspacePeople;
 
   useEffect(() => {
     const c = parseCompanySession(readCompanySessionRaw());
@@ -180,6 +174,21 @@ export default function CompanyPage() {
       logoDataUrl = next;
     }
     const roleSaved = draftRole.trim() || undefined;
+    const nextSelf = buildWorkspacePeopleFromProfile(
+      parseOnboardingProfile(readOnboardingProfileRaw()),
+      roleSaved,
+    );
+    const remotePeers = (c.people ?? []).filter((p) =>
+      p.id.startsWith(WORKSPACE_MEMBER_REMOTE_PREFIX),
+    );
+    const byId = new Map<string, CompanyPerson>();
+    for (const p of nextSelf) byId.set(p.id, p);
+    for (const p of remotePeers) byId.set(p.id, p);
+    const mergedPeople = Array.from(byId.values()).sort((a, b) => {
+      if (a.id === WORKSPACE_ACCOUNT_PERSON_ID) return -1;
+      if (b.id === WORKSPACE_ACCOUNT_PERSON_ID) return 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
     saveCompanySession({
       ...c,
       name,
@@ -187,10 +196,7 @@ export default function CompanyPage() {
       company_number: draftNumber.trim() || undefined,
       company_address: draftAddress.trim() || undefined,
       company_role: roleSaved,
-      people: buildWorkspacePeopleFromProfile(
-        parseOnboardingProfile(readOnboardingProfileRaw()),
-        roleSaved,
-      ),
+      people: mergedPeople,
     });
     setEditingDetails(false);
     setLogoFile(null);
@@ -668,12 +674,12 @@ export default function CompanyPage() {
       <section className="rounded-2xl border border-crm-border bg-crm-elevated/25 p-5 shadow-sm">
         <h2 className={sectionTitle}>People</h2>
         <p className="mt-2 text-xs text-crm-muted">
-          Everyone with access to this account in the current browser session.
-          Your name and email come from sign-up; your role is the one set under
+          You and teammates who use the same company login code while signed in
+          appear here. Your row uses sign-up details; your role is set under
           company details above.
         </p>
 
-        {workspacePeople.length === 0 ? (
+        {displayPeople.length === 0 ? (
           <p className="mt-4 text-sm text-crm-muted">
             No profile is stored in this session, so we can&apos;t show a person
             row yet. Complete sign-up with your name, or open this workspace
@@ -681,7 +687,7 @@ export default function CompanyPage() {
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-crm-border/40 rounded-xl border border-crm-border/50 bg-crm-bg/20">
-            {workspacePeople.map((p) => (
+            {displayPeople.map((p) => (
               <li key={p.id} className="px-4 py-3">
                 <p className="font-medium text-crm-cream">{p.name}</p>
                 <p className="text-sm text-crm-muted">{p.role}</p>
