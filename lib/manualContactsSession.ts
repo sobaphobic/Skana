@@ -124,7 +124,7 @@ export function readManualContactsRaw(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const key = manualContactsStorageKey();
-    let next = sessionStorage.getItem(key);
+    const next = sessionStorage.getItem(key);
     if (next) return next;
     const id = getEffectiveWorkspaceId();
     if (!id) {

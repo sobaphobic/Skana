@@ -118,29 +118,6 @@ function writeInviteRegistry(reg: InviteRegistryFile) {
   }
 }
 
-function upsertInviteRegistryEntry(entry: CompanyInviteRegistryEntry) {
-  const norm = normalizeCompanyInviteCode(entry.code);
-  if (!norm) return;
-  const reg = readInviteRegistry();
-  reg.byNorm[norm] = {
-    code: entry.code.trim(),
-    companyName: entry.companyName.trim(),
-    companyId: entry.companyId.trim(),
-  };
-  writeInviteRegistry(reg);
-  try {
-    localStorage.setItem(
-      COMPANY_INVITE_LOOKUP_KEY,
-      JSON.stringify({
-        code: entry.code.trim(),
-        companyName: entry.companyName.trim(),
-      }),
-    );
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Rebuild registry from all companies (single source of truth on save). */
 function syncInviteRegistryFromCompanies(companies: CompanySession[]) {
   const next: InviteRegistryFile = { byNorm: {} };

@@ -8,7 +8,7 @@ import {
   type CompanySession,
 } from "@/lib/skanaSession";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { DashboardMainHeader } from "./DashboardMainHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { WorkspaceDataSync } from "./WorkspaceDataSync";
@@ -26,10 +26,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     [companyRaw],
   );
 
-  /** Avoid SSR/client hydration mismatch: session companies only exist in the browser. */
-  const [companies, setCompanies] = useState<CompanySession[]>([]);
-  useEffect(() => {
-    setCompanies(listCompaniesInSession());
+  /** Session companies only exist in the browser; server snapshot is empty. */
+  const companies = useMemo((): CompanySession[] => {
+    void companyRaw;
+    if (typeof window === "undefined") return [];
+    return listCompaniesInSession();
   }, [companyRaw]);
 
   return (

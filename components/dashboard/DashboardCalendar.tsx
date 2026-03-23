@@ -20,7 +20,6 @@ import {
   parseCalendarEntries,
   readCalendarEntriesRaw,
   removeCalendarEntry,
-  saveCalendarEntries,
   setCalendarTaskCompleted,
   subscribeCalendarEntries,
   upsertCalendarEntry,
